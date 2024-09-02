@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8" />
+        <title>Product Quick View</title>
+        <link rel="stylesheet" href="style.css" />
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+           </head>
+           <style>
+            body {
+                background: #20262e;
+                padding: 0;
+                margin: 0;
+                font-family: Helvetica;
+                font-size: 14px;
+            }
+            #app {
+                background: #fff;
+                max-width: calc(100%-1rem);
+                width: 100%;
+                margin: 1rem auto;
+                border-radius: 4px;
+                padding: 20px;
+                transition: all 0.2s;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+            }
+            .header, .controls {
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            .main {
+                margin-top: 0.5rem;
+            }
+            .preview-grid {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .preview-grid img {
+                max-width: 200px;
+                max-height: 200px;
+            }
+            .file {
+                border-radius: 3px;
+                border: 1px solid #dbdbdb;
+                background-color: #f5f5f5;
+                padding: 0.5rem;
+                cursor: pointer;
+                display: block;
+            }
+            .file:hover {
+                background-color: #eee;
+                transition: 50ms background-color linear;
+            }
+            input[type="file"] {
+                display: none;
+            }
+            .preview-image {
+                margin: 1rem;
+                position: relative;
+            }
+            .preview-image.is-hidden::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background-color: #fff;
+                z-index: 888;
+            }
+            .preview-image:hover img {
+                opacity: 0.5;
+            }
+            .preview-image:hover .preview-image-overlay {
+                opacity: 1;
+            }
+            .preview-image .preview-image-overlay {
+                opacity: 0;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            .viewer {
+                width: 200px;
+                height: 200px;
+                position: fixed;
+                bottom: 0;
+                right: 0;
+                opacity: 0;
+                z-index: 999;
+            }
+            .viewer > div {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+            }
+            .viewer > div.viewer-left {
+                border: 1px solid aliceblue;
+                z-index: 999;
+            }
+            .viewer > div.viewer-left > img {
+                height: 100%;
+                width: 100%;
+            }
+            .viewer > div.viewer-right {
+                background: #fff;
+                border: 1px solid aliceblue;
+            }
+            input, button, .button {
+                padding: 0.5rem;
+                border-radius: 3px;
+                border: 1px solid #dbdbdb;
+            }
+            button, .button {
+                cursor: pointer;
+            }
+            button.is-text, .button.is-text {
+                border: none;
+                text-decoration: none;
+                color: initial;
+            }
+            button.close, .button.close {
+                border: none;
+                background: transparent;
+            }
+            .is-pulled-right {
+                float: right;
+            }
+            .has-margin {
+                margin: 1rem;
+            }
+            .title {
+                font-size: 1.5rem;
+            }
+            .text-right {
+                text-align: right;
+            }
+            @media (min-width: 768px) {
+                #app {
+                    width: 75%;
+               }
+            }
+            @media (min-width: 1024px) {
+                #app {
+                    width: 50%;
+               }
+            }
+           </style>
+    <body>
+<div id="app">
+  <div class="header">
+    <h1 class="title">
+      Product Quick View Animation
+    </h1>
+  </div>
+  <div class="main">
+    <div class="preview-pane">
+      <product-list
+        :products="products"
+        :viewer-open="viewer.open"
+        @open="open" />
+    </div>
+  </div>
+  <transition
+    v-on:before-enter="beforeEnter"
+    v-on:enter="enter"
+    v-on:after-enter="afterEnter"
+    v-on:enter-cancelled="enterCancelled"
+
+    v-on:before-leave="beforeLeave"
+    v-on:leave="leave"
+    v-on:after-leave="afterLeave"
+    v-on:leave-cancelled="leaveCancelled"
+  >
+    <viewer
+      :product="viewer.product"
+      v-show="viewer.open"
+      @close="close"/>
+  </transition>
+</div>
+
+
+<template id="product-list">
+  <div class="preview-grid">
+     <figure class="preview-image"
+        :class="{'is-hidden': openProductId === prod.id}"
+        v-for="prod in products">
+        <img
+          :src="prod.thumb">
+         <div class="preview-image-overlay">
+            <button type="button"
+              @click="open($event, prod)">
+              Quick View
+            </button>
+         </div>
+    </figure>
+  </div>
+</template>
+
+<template id="productviewer">
+  <div class="viewer" ref="box">
+    <div class="viewer-left">
+       <img :src="product.thumb" alt="">
+    </div>
+    <div class="viewer-right">
+      <button class="button close is-pulled-right" @click="close">
+        <span class="icon">X</span>
+      </button>
+    </div>
+  </div>
+</template>
+  
+  <!-- Javascript here -->
+
+  <script>
+    const productList = Vue.component("product-list", {
+        template: "#product-list",
+        props: {
+          products: {
+            type: Array,
+            required: true,
+          },
+          viewerOpen: {
+            type: Boolean,
+            required: false,
+            default: false,
+          },
+        },
+        data() {
+          return {
+            openProductId: null,
+          };
+        },
+        methods: {
+          open(e, product) {
+            this.openProductId = product.id;
+            const pos = e.target.parentNode.getBoundingClientRect();
+            this.$emit("open", {
+              product: product,
+              bounds: pos,
+            });
+          },
+        },
+        watch: {
+          viewerOpen(newVal) {
+            if (!newVal) {
+              // 1450 is the duration of the leave transition
+              // doing it shortly before to prevent any jerkiness
+              setTimeout(() => {
+                this.openProductId = null;
+              }, 1400);
+            }
+          },
+        },
+      });
+      
+      const viewer = Vue.component("viewer", {
+        template: "#productviewer",
+        props: {
+          offsetY: {
+            type: Number,
+            required: true,
+          },
+          offsetX: {
+            type: Number,
+            required: true,
+          },
+          product: {
+            type: Object,
+            required: true,
+          },
+        },
+        mounted() {
+          console.log("mounted");
+        },
+        methods: {
+          close() {
+            console.log("closed");
+            this.$emit("close");
+          },
+        },
+        watch: {
+          offsetX(newVal) {
+            console.log("new val: ", newVal);
+          },
+        },
+      });
+      
+      new Vue({
+        el: "#app",
+        components: {
+          productList,
+          viewer,
+        },
+        data: {
+          viewer: {
+            animation: null,
+            open: false,
+            openTran: null,
+            expandTran: null,
+            offsetX: 0,
+            offsetY: 0,
+            initialWidth: 0,
+            product: {
+              id: "",
+            },
+          },
+          products: [
+            {
+              id: "Glue Stick",
+              thumb: "https://via.placeholder.com/400x400",
+              images: ["https://via.placeholder.com/405x405"],
+            },
+            {
+              id: "Paper",
+              thumb: "https://via.placeholder.com/200x200",
+              images: ["https://via.placeholder.com/405x405"],
+            },
+            {
+              id: "Pencil",
+              thumb: "https://via.placeholder.com/200x200",
+              images: ["https://via.placeholder.com/405x405"],
+            },
+          ],
+        },
+        computed() {},
+        mounted() {},
+        methods: {
+          close() {
+            console.log("closed");
+            this.viewer.open = false;
+          },
+          open({ product, bounds }) {
+            this.viewer.product = product;
+            this.viewer.offsetY = bounds.top;
+            this.viewer.offsetX = bounds.left;
+            this.viewer.initialWidth = bounds.width;
+            this.viewer.initialHeight = bounds.height;
+            this.viewer.open = true;
+          },
+          beforeEnter(el) {
+            el.style.top = `${this.viewer.offsetY}px`;
+            el.style.left = `${this.viewer.offsetX}px`;
+          },
+          enter(el, done) {
+            const offsetX = this.viewer.offsetX;
+            const offsetY = this.viewer.offsetY;
+            // slide the product view to the center
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const windowCenterX = (windowWidth - this.viewer.initialWidth * 2) / 2;
+            const windowCenterY = (windowHeight - this.viewer.initialHeight * 2) / 2;
+            const ani = anime({
+              targets: el,
+              top: [this.viewer.offsetY, windowCenterY],
+              left: [this.viewer.offsetX, windowCenterX],
+              opacity: 1,
+              width: `${this.viewer.initialWidth * 2}px`,
+              height: `${this.viewer.initialHeight * 2}px`,
+              easing: "easeInOutQuad",
+            });
+      
+            ani.complete = done;
+          },
+          afterEnter(el) {
+            // slide the product view apart
+            const ani = anime.timeline();
+            ani
+              .add({
+                targets: ".viewer-left",
+                left: "-50%",
+                easing: "easeInOutCirc",
+                offset: 0,
+              })
+              .add({
+                targets: ".viewer-right",
+                left: "50%",
+                easing: "easeInOutCirc",
+                offset: 0,
+              });
+      
+            /* set margin auto, top 0, left 0
+              this keeps the box centered on resize
+              but can't be used before animation because it prevents
+              animating from the product image position */
+            ani.complete = function () {
+              el.style.cssText += "margin: auto; top: 0; left: 0;";
+            };
+          },
+          enterCancelled() {},
+          beforeLeave(el) {
+            /* remove margin and set top and left back to offsets
+            so animation can be done back to product image position */
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const windowCenterX = (windowWidth - this.viewer.initialWidth * 2) / 2;
+            const windowCenterY = (windowHeight - this.viewer.initialHeight * 2) / 2;
+            el.style.top = `${windowCenterY}px`;
+            el.style.left = `${windowCenterY}px`;
+            el.style.margin = "";
+          },
+          leave(el, done) {
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const windowCenterX = (windowWidth - this.viewer.initialWidth * 2) / 2;
+            const windowCenterY = (windowHeight - this.viewer.initialHeight * 2) / 2;
+            // slide the product view together
+            const ani = anime.timeline();
+            ani
+              .add({
+                targets: ".viewer-left",
+                left: 0,
+                easing: "easeInOutCirc",
+                duration: 500,
+                offset: 0,
+              })
+              .add({
+                targets: ".viewer-right",
+                left: 0,
+                easing: "easeInOutCirc",
+                duration: 500,
+                offset: 0,
+              })
+              .add({
+                targets: ".viewer",
+                top: [windowCenterY, this.viewer.offsetY],
+                left: [windowCenterX, this.viewer.offsetX],
+                width: `${this.viewer.initialWidth}px`,
+                height: `${this.viewer.initialHeight}px`,
+                easing: "easeInOutQuad",
+                offset: 450,
+              });
+      
+            ani.complete = done;
+          },
+          afterLeave() {},
+          leaveCancelled() {},
+        },
+      });
+  </script>
+    </body>
+</html>
